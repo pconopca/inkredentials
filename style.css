@@ -961,6 +961,9 @@ main {
   font-size: 18px;
   font-weight: 700;
   margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .share-ens:empty { display: none; }
