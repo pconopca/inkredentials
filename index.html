@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>INKredentials — Your On-Chain Card on Ink</title>
+  <meta name="description" content="Generate your on-chain credentials on the Ink network. Score, rank, and stats — shareable in one click." />
+  <meta property="og:title" content="INKredentials — Your On-Chain Card" />
+  <meta property="og:description" content="Generate your on-chain credentials on the Ink network." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="logo">
+      <span class="logo-dot"></span>
+      <span class="logo-text">INK<span class="logo-accent">redentials</span></span>
+    </div>
+    <span class="header-credit">by <a href="https://x.com/protocolraider" target="_blank" rel="noopener">@protocolraider</a></span>
+    <a class="header-link" href="https://inkonchain.com" target="_blank" rel="noopener">Built for Ink ↗</a>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="trust-pill">
+        <span class="pulse-dot"></span>
+        <span>100% real on-chain data · no fake scores</span>
+      </div>
+      <h1>Your on-chain identity on <span class="grad">Ink</span>.</h1>
+      <p class="subtitle">Track your on-chain activity on the Ink network — paste your wallet to see stats, score, and rank.</p>
+
+      <form id="addr-form" class="addr-form" autocomplete="off">
+        <input
+          id="addr-input"
+          type="text"
+          placeholder="0x… or name.eth or name.ink"
+          spellcheck="false"
+          autocomplete="off"
+        />
+        <button type="submit" id="submit-btn">Generate</button>
+      </form>
+      <p id="error-msg" class="error-msg" hidden></p>
+    </section>
+
+    <section id="card-section" class="card-section" hidden>
+      <div id="new-search-bar" class="new-search-bar" hidden>
+        <button id="btn-new-search" class="btn-new-search">← Search another wallet</button>
+      </div>
+
+      <div id="loading" class="loading" hidden>
+        <div class="spinner"></div>
+        <ul class="loading-steps">
+          <li class="loading-step loading-step--pending" id="step-wallet">
+            <span class="step-dot"></span><span>Wallet &amp; balance</span>
+          </li>
+          <li class="loading-step loading-step--pending" id="step-nado">
+            <span class="step-dot"></span><span>Nado points</span>
+          </li>
+          <li class="loading-step loading-step--pending" id="step-tydro">
+            <span class="step-dot"></span><span>Tydro points</span>
+          </li>
+          <li class="loading-step loading-step--pending" id="step-txs">
+            <span class="step-dot"></span><span>Transaction history</span>
+          </li>
+          <li class="loading-step loading-step--pending" id="step-contracts">
+            <span class="step-dot"></span><span>Contract deployments</span>
+          </li>
+          <li class="loading-step loading-step--pending" id="step-nfts">
+            <span class="step-dot"></span><span>NFTs &amp; tokens</span>
+          </li>
+        </ul>
+      </div>
+
+      <div id="card" class="card" hidden>
+        <div class="card-header">
+          <div class="card-brand">
+            <span class="logo-dot"></span>
+            <span class="card-brand-text">INKredentials</span>
+          </div>
+          <span class="card-network">INK · L2</span>
+        </div>
+
+        <div class="card-identity">
+          <div id="avatar" class="avatar"></div>
+          <div class="identity-text">
+            <div id="ens" class="ens"></div>
+            <div id="addr-display" class="addr-display"></div>
+          </div>
+        </div>
+
+        <div class="score-block">
+          <div class="score-ring" id="score-ring">
+            <svg viewBox="0 0 120 120" class="score-svg">
+              <circle cx="60" cy="60" r="52" class="ring-bg" />
+              <circle cx="60" cy="60" r="52" class="ring-fg" id="ring-fg" />
+            </svg>
+            <div class="score-value">
+              <span id="score-num">0</span>
+              <span class="score-max">/108</span>
+            </div>
+          </div>
+          <div class="rank-info">
+            <div class="rank-label">RANK</div>
+            <div id="rank-tier" class="rank-tier">—</div>
+            <div id="rank-pct" class="rank-pct"></div>
+          </div>
+        </div>
+
+        <!-- Kraken verified status — eligibility signal, not scored -->
+        <div id="kraken-status" class="kraken-status" hidden></div>
+
+        <div class="stats-grid stats-grid--priority">
+          <div class="stat stat--priority">
+            <div class="stat-label">🌪️ Nado Points</div>
+            <div class="stat-value" id="stat-nado-points">—</div>
+            <div class="stat-sub" id="stat-nado-sub">all-time</div>
+          </div>
+          <div class="stat stat--priority">
+            <div class="stat-label">💧 Tydro Points</div>
+            <div class="stat-value" id="stat-tydro-points">—</div>
+            <div class="stat-sub" id="stat-tydro-sub">all-time</div>
+          </div>
+        </div>
+
+        <div class="stats-grid stats-grid--keys">
+          <div class="stat stat--key" id="key-templars">
+            <div class="stat-label">🛡️ Templars NFT</div>
+            <div class="stat-value" id="stat-templars">—</div>
+            <div class="stat-sub" id="stat-templars-sub">Nado early phase</div>
+          </div>
+          <div class="stat stat--key" id="key-seeker">
+            <div class="stat-label">👁️ Eye of Seeker NFT</div>
+            <div class="stat-value" id="stat-seeker">—</div>
+            <div class="stat-sub" id="stat-seeker-sub">Ink early phase</div>
+          </div>
+          <div class="stat stat--key" id="key-inkdomain">
+            <div class="stat-label">🔤 .ink Domain</div>
+            <div class="stat-value" id="stat-inkdomain">—</div>
+            <div class="stat-sub" id="stat-inkdomain-sub">ZNS Connect</div>
+          </div>
+        </div>
+
+        <div class="stats-grid stats-grid--solo">
+          <div class="stat stat--ecosystem">
+            <div class="stat-label">👋 GM Ink</div>
+            <div class="stat-value" id="stat-gm">—</div>
+            <div class="stat-sub" id="stat-gm-sub">basic only</div>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat">
+            <div class="stat-label">Transactions</div>
+            <div class="stat-value" id="stat-tx">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Balance (ETH)</div>
+            <div class="stat-value" id="stat-balance">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Portfolio Value</div>
+            <div class="stat-value" id="stat-tokenvalue">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Wallet Age</div>
+            <div class="stat-value" id="stat-walletage">—</div>
+            <div class="stat-sub" id="stat-walletage-sub">on Ink</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">🛠️ Contracts</div>
+            <div class="stat-value" id="stat-contracts">—</div>
+            <div class="stat-sub" id="stat-contracts-sub">deployed on Ink</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">🌉 Bridged to Ink</div>
+            <div class="stat-value" id="stat-bridge">—</div>
+            <div class="stat-sub" id="stat-bridge-sub">via official bridge</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Tokens</div>
+            <div class="stat-value" id="stat-tokens">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">NFTs</div>
+            <div class="stat-value" id="stat-nfts">—</div>
+            <div class="stat-sub" id="stat-nfts-sub"></div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">⛽ Gas Used</div>
+            <div class="stat-value" id="stat-gas">—</div>
+            <div class="stat-sub" id="stat-gas-sub">on Ink</div>
+          </div>
+        </div>
+
+        <div class="badges" id="badges"></div>
+
+        <div class="card-footer">
+          <span class="verified-mark">✓ Verified on-chain</span>
+          <span class="footer-sep">·</span>
+          <span>data from Ink explorer</span>
+        </div>
+      </div>
+
+      <div id="actions" class="actions" hidden>
+        <button id="btn-open-share" class="action-btn action-btn--primary action-btn--share">↗ Share my card</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Public data via <a href="https://explorer.inkonchain.com" target="_blank" rel="noopener">Ink Explorer</a>. Not affiliated with Ink or Kraken.</p>
+  </footer>
+
+  <!-- ===== Share Modal ===== -->
+  <div id="share-modal" class="share-modal" hidden>
+    <div class="share-modal-backdrop" id="share-backdrop"></div>
+    <div class="share-modal-content">
+      <button class="share-modal-close" id="share-close" aria-label="Close">✕</button>
+      <p class="share-modal-label">Your share card</p>
+
+      <!-- Mini card — captured as PNG -->
+      <div id="share-card" class="share-card">
+        <div class="share-card-header">
+          <div class="share-card-brand">
+            <span class="logo-dot"></span>
+            <span class="share-brand-text">INK<span class="logo-accent">redentials</span></span>
+          </div>
+          <span class="share-card-network">INK · L2</span>
+        </div>
+
+        <div class="share-identity">
+          <div id="share-avatar" class="share-avatar"></div>
+          <div class="share-identity-text">
+            <div id="share-ens" class="share-ens"></div>
+            <div id="share-addr" class="share-addr"></div>
+          </div>
+        </div>
+
+        <div class="share-score-block">
+          <div class="share-score-ring">
+            <svg viewBox="0 0 100 100" class="share-score-svg">
+              <circle cx="50" cy="50" r="42" class="share-ring-bg" />
+              <circle cx="50" cy="50" r="42" class="share-ring-fg" id="share-ring-fg" />
+            </svg>
+            <div class="share-score-value">
+              <span id="share-score-num">—</span>
+              <span class="share-score-max">/108</span>
+            </div>
+          </div>
+          <div class="share-rank-info">
+            <div class="share-rank-label">RANK</div>
+            <div id="share-rank-tier" class="share-rank-tier">—</div>
+            <div id="share-rank-pct" class="share-rank-pct"></div>
+          </div>
+        </div>
+
+        <div id="share-badges" class="share-badges"></div>
+
+        <div class="share-card-footer">
+          <span class="verified-mark">✓ verified on-chain</span>
+          <span class="footer-sep">·</span>
+          <span>inkredentials</span>
+        </div>
+      </div>
+
+      <!-- Actions inside modal -->
+      <div class="share-actions">
+        <button id="share-btn-save" class="action-btn">⬇ Save PNG</button>
+        <button id="share-btn-tweet" class="action-btn action-btn--primary">𝕏 Post on X</button>
+        <button id="share-btn-copy" class="action-btn">📋 Copy image</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
