@@ -671,9 +671,13 @@ main {
 }
 
 .stat-link {
+  display: block;
+  margin-top: 6px;
+  font-size: 10px;
+  letter-spacing: 0.5px;
   color: var(--ink-purple-2);
   text-decoration: none;
-  font-weight: 700;
+  font-weight: 600;
   transition: color 0.2s;
 }
 
