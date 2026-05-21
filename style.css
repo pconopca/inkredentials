@@ -616,7 +616,8 @@ main {
   background: linear-gradient(135deg, #ffd86b 0%, #9b6bff 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  font-size: 22px;
+  font-size: 16px;
+  word-break: break-all;
 }
 
 .stat--ecosystem {
@@ -893,14 +894,13 @@ main {
 /* ===== Mini Share Card ===== */
 .share-card {
   width: 380px;
-  height: 380px;
+  min-height: 380px;
   flex-shrink: 0;
   background: #100820;
   border: 2px solid rgba(117, 56, 245, 0.45);
   border-radius: 20px;
   padding: 24px;
   position: relative;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
@@ -1078,6 +1078,8 @@ main {
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+  flex-shrink: 0;
+  margin-top: auto;
 }
 
 /* Actions inside modal */
