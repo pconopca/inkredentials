@@ -1188,7 +1188,7 @@ document.getElementById("share-btn-tweet").addEventListener("click", () => {
   if (!_shareData) return;
   const { score, tier } = _shareData;
   const url = window.location.href;
-  const text = `My INKredentials score: ${score}/108 — ${tier} 🟣\n\nCheck yours: ${url}`;
+  const text = `My INKredentials score: ${score}/100 — ${tier} 🟣\n\nCheck yours: ${url}`;
   window.open(
     `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
     "_blank", "noopener"
