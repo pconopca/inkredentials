@@ -530,8 +530,8 @@ function countTydroPositions(erc20Items) {
   }).length;
 }
 
-// Fetch Kraken verified status from gm.ink.
-// Returns { verified: bool, rank, score } or null on failure.
+// Fetch Kraken verified status and GM counts from gm.ink.
+// Returns { verified, rank, score, sent, premiumSent, received } or null on failure.
 // Endpoint confirmed via network capture: GET /api/user-leaderboard?address={addr}
 async function fetchGmInkStatus(addr) {
   const d = await safeFetch(
@@ -540,9 +540,12 @@ async function fetchGmInkStatus(addr) {
   );
   if (!d?.user) return null;
   return {
-    verified: !!d.user.verified,
-    rank: d.user.rank || null,
-    score: d.user.score || null,
+    verified:     !!d.user.verified,
+    rank:         d.user.rank  || null,
+    score:        d.user.score || null,
+    sent:         Number(d.user.sent         || 0),
+    premiumSent:  Number(d.user.premiumSent  || 0),
+    received:     Number(d.user.received     || 0),
   };
 }
 
@@ -686,13 +689,19 @@ async function fetchWallet(addr, onStep = () => {}) {
     ethPrice,
     tokenValueUSD: computeTokenValueUSD(erc20?.items, erc721?.items, info?.coin_balance || "0", ethPrice),
     walletAgeDays,
-    proto: protoCounts,
+    proto: {
+      ...protoCounts,
+      // Override blockchain-scanned GM counts with gm.ink API values when available
+      // (blockchain scan misses GMs for high-activity wallets due to page limit)
+      gm:     gmInkStatus?.sent        ?? protoCounts.gm,
+      gmPlus: gmInkStatus?.premiumSent ?? protoCounts.gmPlus,
+    },
     contractsDeployed,
     tydroPositions: countTydroPositions(erc20?.items),
     nadoPoints,
     tydroPoints,
     keyNfts: countKeyNfts(erc721?.items),
-    gmReceived: countGmReceived(erc721?.items),
+    gmReceived: gmInkStatus?.received ?? countGmReceived(erc721?.items),
     inkDomain: detectInkDomain(erc721?.items, ensName),
     krakenStatus: gmInkStatus,
     bridgeVolumeUSD: (Number(bridgeResult.ethWei) / 1e18) * ethPrice + bridgeResult.tokenUSD,
