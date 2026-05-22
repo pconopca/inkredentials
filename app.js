@@ -781,11 +781,8 @@ function computeScore(d) {
   // Portfolio value: log scale, ~$1000 → max.
   const tokenVal = cap(log(d.tokenValueUSD) / log(1001), 1);
 
-  // Contracts: 1=0.5, 2=0.75, 3+=1.0.
-  const contracts =
-    d.contractsDeployed >= 3 ? 1.0 :
-    d.contractsDeployed === 2 ? 0.75 :
-    d.contractsDeployed === 1 ? 0.50 : 0;
+  // Contracts: log scale — 1→0.33, 3→0.60, 10→0.91, 25→max. Rewards real builders.
+  const contracts = cap(log(d.contractsDeployed) / log(25), 1);
 
   // .ink domain — binary.
   const inkDomain = d.inkDomain ? 1 : 0;
