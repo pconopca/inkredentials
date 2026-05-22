@@ -122,7 +122,12 @@ const CONTRACT_TO_PROTOCOL = (() => {
   return m;
 })();
 
-const TX_SCAN_PAGES = 5; // 5 pages × 50 tx = 250 outgoing txs (filter=from keeps all slots relevant)
+const TX_SCAN_PAGES = 15; // 15 pages × 50 tx = 750 outgoing txs (filter=from keeps all slots relevant)
+
+// Ink mainnet genesis — used as wallet-age lower bound when the tx scan
+// can't reach the user's first tx (extreme power-user wallets with 750+ outgoing txs).
+// Block 0 timestamp: 2024-11-19 (confirmed from Ink Blockscout).
+const INK_GENESIS_TS = 1732060800; // 2024-11-20 00:00 UTC
 
 // ZNS Connect — the .ink domain registry on Ink chain.
 // Confirmed on Ink Blockscout: ERC-721, symbol ".ink", verified contract.
@@ -303,13 +308,16 @@ async function safeFetch(url, timeoutMs = 8000) {
 // and oldest tx seen. Using filter=from is critical — without it the endpoint returns ALL
 // transactions (sent + received), so incoming airdrops/transfers fill the pages and push
 // the user's actual GMs and contract deploys beyond the scan window.
-// Returns { nado, tydro, gm, gmPlus, directContracts (Set), oldestTxTimestamp }.
+// Returns { nado, tydro, gm, gmPlus, directContracts (Set), oldestTxTimestamp, reachedEnd }.
+// reachedEnd=false means the wallet has more txs than our scan window — wallet age will
+// fall back to INK_GENESIS_TS as a safe lower bound.
 async function countProtocolInteractions(addr) {
   const counts = Object.fromEntries(Object.keys(PROTOCOLS).map((k) => [k, 0]));
   counts.gmPlus = 0;
   const directContracts = new Set();
   const factoryDeployTxHashes = []; // txs to known factories — resolved via per-tx internal-txs
   let oldestTxTimestamp = null;
+  let reachedEnd = false;
 
   // filter=from → only transactions sent BY this address
   let url = `${INK_API}/addresses/${addr}/transactions?filter=from`;
@@ -337,7 +345,7 @@ async function countProtocolInteractions(addr) {
       }
     }
     const np = r.next_page_params;
-    if (!np) break;
+    if (!np) { reachedEnd = true; break; }
     // Preserve filter=from across cursor pages
     const qs = new URLSearchParams({ ...np, filter: "from" }).toString();
     url = `${INK_API}/addresses/${addr}/transactions?${qs}`;
@@ -355,7 +363,7 @@ async function countProtocolInteractions(addr) {
     }
   }));
 
-  return { ...counts, directContracts, factoryContracts, oldestTxTimestamp };
+  return { ...counts, directContracts, factoryContracts, oldestTxTimestamp, reachedEnd };
 }
 
 
@@ -610,7 +618,7 @@ async function fetchBridgeVolume(addr) {
 
   // Signal 1: type-126 ETH deposits (paginated incoming txs).
   let url = `${INK_API}/addresses/${addr}/transactions?filter=to`;
-  for (let page = 0; page < 10; page++) {
+  for (let page = 0; page < 20; page++) {
     const r = await safeFetch(url, 6000);
     if (!r?.items) break;
     for (const tx of r.items) {
@@ -625,7 +633,7 @@ async function fetchBridgeVolume(addr) {
 
   // Signal 2: ERC-20 token transfers from known bridge relay contracts.
   url = `${INK_API}/addresses/${addr}/token-transfers?filter=to&type=ERC-20`;
-  for (let page = 0; page < 5; page++) {
+  for (let page = 0; page < 20; page++) {
     const r = await safeFetch(url, 6000);
     if (!r?.items) break;
     for (const tf of r.items) {
@@ -646,6 +654,23 @@ async function fetchBridgeVolume(addr) {
   return { ethWei, tokenUSD };
 }
 
+// Fetch ALL pages of a paginated token list (ERC-20 or ERC-721).
+// Returns a single merged response object { items: [...all items] }.
+// Cap at 20 pages (1000 tokens) — no real wallet holds more than that.
+async function fetchAllTokenPages(baseUrl) {
+  const allItems = [];
+  let url = baseUrl;
+  for (let page = 0; page < 20; page++) {
+    const r = await safeFetch(url);
+    if (!r?.items) break;
+    allItems.push(...r.items);
+    const np = r.next_page_params;
+    if (!np) break;
+    url = `${baseUrl}&${new URLSearchParams(np)}`;
+  }
+  return { items: allItems };
+}
+
 // onStep(id) is called the moment each data source resolves — used to animate the checklist.
 async function fetchWallet(addr, onStep = () => {}) {
   // Helper: resolve promise, then immediately notify the caller which step finished.
@@ -655,8 +680,8 @@ async function fetchWallet(addr, onStep = () => {}) {
     await Promise.all([
       s("step-wallet",  safeFetch(`${INK_API}/addresses/${addr}`)),
       safeFetch(`${INK_API}/addresses/${addr}/counters`),
-      s("step-nfts",    safeFetch(`${INK_API}/addresses/${addr}/tokens?type=ERC-20`)),
-      safeFetch(`${INK_API}/addresses/${addr}/tokens?type=ERC-721`),
+      s("step-nfts",    fetchAllTokenPages(`${INK_API}/addresses/${addr}/tokens?type=ERC-20`)),
+      fetchAllTokenPages(`${INK_API}/addresses/${addr}/tokens?type=ERC-721`),
       // countProtocolInteractions now handles both direct and factory deploys internally;
       // mark step-contracts immediately after step-txs since they resolve together.
       s("step-txs", countProtocolInteractions(addr)).then((r) => { onStep("step-contracts"); return r; }),
@@ -669,7 +694,10 @@ async function fetchWallet(addr, onStep = () => {}) {
   const ensName = info?.ens_domain_name || null;
   const ethPrice = parseFloat(info?.exchange_rate || 0);
   const nowTs = Math.floor(Date.now() / 1000);
-  const oldestTs = protoCounts.oldestTxTimestamp;
+  // If we didn't reach the end of the tx history, fall back to Ink genesis as a safe
+  // lower bound — wallets with 750+ outgoing txs are definitely early adopters.
+  const oldestTs = protoCounts.oldestTxTimestamp
+    || (!protoCounts.reachedEnd ? INK_GENESIS_TS : null);
   const walletAgeDays = oldestTs ? Math.floor((nowTs - oldestTs) / 86400) : 0;
 
   // Merge direct deploys + factory deploys (ZNS etc.) resolved via per-tx internal-txs.
